@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Environment variables file
+.env
+
+# Database (optional)
+db.sqlite3
+
+# SSL certificate (Aiven)
+ca.pem
