@@ -44,9 +44,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'app', 
     'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -153,5 +155,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-print("DB_NAME:", os.getenv("DB_NAME"))
-print("DB_HOST:", os.getenv("DB_HOST"))
+#print("DB_NAME:", os.getenv("DB_NAME"))
+#print("DB_HOST:", os.getenv("DB_HOST"))
+
+CORS_ALLOW_ALL_ORIGINS = True
