@@ -1,68 +1,11 @@
-'''
-from rest_framework import serializers
-from .models import *
-
-
-class ClientBillingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ClientBilling
-        exclude = ['client']
-
-
-class ClientOwnershipSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ClientOwnership
-        exclude = ['client']
-
-
-class ClientClassificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ClientClassification
-        exclude = ['client']
-
-
-class ClientSerializer(serializers.ModelSerializer):
-    billing = ClientBillingSerializer(source='clientbilling')
-    #operational = ClientOperationalSerializer(source='clientoperational')
-    ownership = ClientOwnershipSerializer(source='clientownership')
-    classification = ClientClassificationSerializer(source='clientclassification')
-
-    class Meta:
-        model = Client
-        fields = '__all__'
-
-    def create(self, validated_data):
-        billing_data = validated_data.pop('clientbilling')
-        operational_data = validated_data.pop('clientoperational')
-        ownership_data = validated_data.pop('clientownership')
-        classification_data = validated_data.pop('clientclassification')
-
-        client = Client.objects.create(**validated_data)
-
-        ClientBilling.objects.create(client=client, **billing_data)
-        #ClientOperational.objects.create(client=client, **operational_data)
-        ClientOwnership.objects.create(client=client, **ownership_data)
-        ClientClassification.objects.create(client=client, **classification_data)
-
-        return client
-    
-
-class CampaignSerializer(serializers.ModelSerializer):
-    client_name = serializers.CharField(source='client.name', read_only=True)
-
-    class Meta:
-        model = Campaign
-        fields = '__all__'
-
-        '''
-
 
 
 from rest_framework import serializers
 from .models import *
+import json
 
 
-# ==============================
+# ==============================  
 # CHILD SERIALIZERS
 # ==============================
 
@@ -84,32 +27,27 @@ class ClientClassificationSerializer(serializers.ModelSerializer):
         exclude = ['client']
 
 
-# ✅ NEW: Address Serializer (MULTIPLE)
+#  NEW: Address Serializer (MULTIPLE)
 class CompanyAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyAddress
         exclude = ['client']
 
 
-# ✅ NEW: Contact Serializer (MULTIPLE)
+#  NEW: Contact Serializer (MULTIPLE)
 class CompanyContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyContact
         exclude = ['client']
 
 
-# ==============================
-# MAIN CLIENT SERIALIZER
-# ==============================
 
 class ClientSerializer(serializers.ModelSerializer):
 
-    # One-to-one
-    billing = ClientBillingSerializer(source='clientbilling')
-    ownership = ClientOwnershipSerializer(source='clientownership')
-    classification = ClientClassificationSerializer(source='clientclassification')
+    billing = ClientBillingSerializer()
+    ownership = ClientOwnershipSerializer()
+    classification = ClientClassificationSerializer()
 
-    # One-to-many (MULTIPLE)
     addresses = CompanyAddressSerializer(many=True)
     contacts = CompanyContactSerializer(many=True)
 
@@ -117,43 +55,159 @@ class ClientSerializer(serializers.ModelSerializer):
         model = Client
         fields = '__all__'
 
+    #  ADD HERE (inside class)
+
+
+    def to_internal_value(self, data):
+        data = data.copy()
+
+        try:
+            if isinstance(data.get('billing'), str):
+                data['billing'] = json.loads(data['billing'])
+
+            if isinstance(data.get('ownership'), str):
+                data['ownership'] = json.loads(data['ownership'])
+
+            if isinstance(data.get('classification'), str):
+                data['classification'] = json.loads(data['classification'])
+
+            if isinstance(data.get('addresses'), str):
+                data['addresses'] = json.loads(data['addresses'])
+
+            if isinstance(data.get('contacts'), str):
+                data['contacts'] = json.loads(data['contacts'])
+
+        except Exception as e:
+            raise serializers.ValidationError(f"Invalid JSON format: {str(e)}")
+
+        return super().to_internal_value(data)
+
+    #  EXISTING CREATE METHOD
     def create(self, validated_data):
-
-        # Extract nested data
-        billing_data = validated_data.pop('clientbilling')
-        ownership_data = validated_data.pop('clientownership')
-        classification_data = validated_data.pop('clientclassification')
-
+        billing_data = validated_data.pop('billing')
+        ownership_data = validated_data.pop('ownership')
+        classification_data = validated_data.pop('classification')
         addresses_data = validated_data.pop('addresses', [])
         contacts_data = validated_data.pop('contacts', [])
 
-        # Create main client
+        signatures = self.context.get('signatures', {})
+
         client = Client.objects.create(**validated_data)
 
-        # Create One-to-One
         ClientBilling.objects.create(client=client, **billing_data)
         ClientOwnership.objects.create(client=client, **ownership_data)
         ClientClassification.objects.create(client=client, **classification_data)
 
-        # ✅ Create MULTIPLE addresses
         for addr in addresses_data:
             CompanyAddress.objects.create(client=client, **addr)
 
-        # ✅ Create MULTIPLE contacts
-        for contact in contacts_data:
-            CompanyContact.objects.create(client=client, **contact)
+        for index, contact in enumerate(contacts_data):
+            sig = signatures.get(f'contact_signature_{index}')
+            contact_obj = CompanyContact.objects.create(client=client, **contact)
+            if sig:
+                contact_obj.digital_signature = sig
+                contact_obj.save()
 
         return client
+
+
+
+# import json
+
+# class ClientSerializer(serializers.ModelSerializer):
+
+#     class Meta:
+#         model = Client
+#         fields = '__all__'
+
+#     def create(self, validated_data):
+
+#         request = self.context.get('request')
+
+#         # Parse JSON strings from FormData
+#         billing_data = json.loads(request.data.get('billing'))
+#         ownership_data = json.loads(request.data.get('ownership'))
+#         classification_data = json.loads(request.data.get('classification'))
+#         addresses_data = json.loads(request.data.get('addresses', '[]'))
+#         contacts_data = json.loads(request.data.get('contacts', '[]'))
+
+#         signatures = self.context.get('signatures', {})
+
+#         #  Create client (remove nested fields manually)
+#         client = Client.objects.create(
+#             name=request.data.get('name'),
+#             reporting_id=request.data.get('reporting_id'),
+#             company_type=request.data.get('company_type'),
+#             agency_type=request.data.get('agency_type'),
+#             brand=request.data.get('brand'),
+#             website=request.data.get('website'),
+#             phone=request.data.get('phone'),
+#             email=request.data.get('email'),
+#             billing_currency=request.data.get('billing_currency'),
+#             address_line1=request.data.get('address_line1'),
+#             address_line2=request.data.get('address_line2'),
+#             country=request.data.get('country'),
+#             state=request.data.get('state'),
+#             city=request.data.get('city'),
+#             zipcode=request.data.get('zipcode'),
+#             cin_number=request.data.get('cin_number'),
+#             vast_number=request.data.get('vast_number'),
+#             place_of_supply=request.data.get('place_of_supply'),
+#         )
+
+#         #  One-to-one
+#         ClientBilling.objects.create(client=client, **billing_data)
+#         ClientOwnership.objects.create(client=client, **ownership_data)
+#         ClientClassification.objects.create(client=client, **classification_data)
+
+#         #  Addresses
+#         for addr in addresses_data:
+#             CompanyAddress.objects.create(client=client, **addr)
+
+#         #  Contacts + signature
+#         for index, contact in enumerate(contacts_data):
+#             sig = signatures.get(f'contact_signature_{index}')
+
+#             contact_obj = CompanyContact.objects.create(
+#                 client=client,
+#                 **contact
+#             )
+
+#             if sig:
+#                 contact_obj.digital_signature = sig
+#                 contact_obj.save()
+
+#         return client
+
+
+
+
 
 
 # ==============================
 # CAMPAIGN
 # ==============================
 
+
+class LineItemCreativeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LineItemCreative
+        fields = '__all__'
+        read_only_fields = ['file_type']
+
+class LineItemSerializer(serializers.ModelSerializer):
+    creatives = LineItemCreativeSerializer(many=True, read_only=True)
+    class Meta:
+        model = LineItem
+        fields = '__all__'
+
+
 class CampaignSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
-    campaign_id = serializers.CharField(read_only=True)
+    line_items = LineItemSerializer(many=True, read_only=True)
+    client = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Campaign
         fields = '__all__'
+

@@ -1,9 +1,7 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from datetime import datetime
-
-
-
+import os
 
 # ==============================
 # CUSTOM USER
@@ -91,7 +89,9 @@ class Client(models.Model):
 # BILLING & COMMERCIALS
 # ==============================
 class ClientBilling(models.Model):
-    client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    #client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='billing')
+
 
     #pricing_model = models.CharField(max_length=100)
     #agency_fee_type = models.CharField(max_length=100)
@@ -162,6 +162,7 @@ class CompanyContact(models.Model):
     zipcode = models.CharField(max_length=10, blank=True)
     address_line1 = models.TextField(blank=True)
     address_line2 = models.TextField(blank=True)
+    #digital_signature = models.TextField(null=True, blank=True)
     digital_signature = models.FileField(upload_to="signatures/", null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -199,7 +200,9 @@ class CompanyContact(models.Model):
 # ACCOUNT OWNERSHIP
 # ==============================
 class ClientOwnership(models.Model):
-    client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    #client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='ownership')
+
 
     account_manager = models.CharField(max_length=100)
     sales_owner = models.CharField(max_length=100)
@@ -214,7 +217,8 @@ class ClientOwnership(models.Model):
 # CLASSIFICATION
 # ==============================
 class ClientClassification(models.Model):
-    client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    #client = models.OneToOneField(Client, on_delete=models.CASCADE)
+    client = models.OneToOneField(Client, on_delete=models.CASCADE, related_name='classification')
 
     client_type = models.CharField(max_length=100)
     priority = models.CharField(max_length=50)
@@ -235,8 +239,7 @@ class ClientClassification(models.Model):
     
 
 # --------------------------------------------------------------------------------
-from django.db import models, transaction
-from datetime import datetime
+
 
 class Campaign(models.Model):
 
@@ -254,7 +257,7 @@ class Campaign(models.Model):
     buying_type = models.CharField(max_length=60)
     objective = models.CharField(max_length=100)
 
-    # ✅ Auto-generated field
+    #  Auto-generated field
     campaign_id = models.CharField(
         max_length=100,
         unique=True,
@@ -273,28 +276,14 @@ class Campaign(models.Model):
     brand_safety = models.CharField(max_length=20)
     viewability_goal = models.PositiveIntegerField(blank=True, null=True)
 
-    budget_type = models.CharField(max_length=10)
-    total_budget = models.DecimalField(max_digits=14, decimal_places=2)
-
-    start_date = models.DateField()
-    end_date = models.DateField()
-
-    pacing = models.CharField(max_length=20)
-    day_parting = models.CharField(max_length=50, blank=True, null=True)
-    timezone = models.CharField(max_length=50, default="Asia/Kolkata")
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
 
-    # ✅ Validation
-    def clean(self):
-        if self.end_date and self.start_date:
-            if self.end_date < self.start_date:
-                raise ValueError("End date must be greater than start date")
 
-    # ✅ FIXED generator
+
+    #  FIXED generator
     def generate_campaign_id(self):
         year = datetime.now().year
 
@@ -310,7 +299,7 @@ class Campaign(models.Model):
 
         return f"CMP-{year}-{str(new_num).zfill(5)}"
 
-    # ✅ FIXED save method (INSIDE CLASS)
+    # FIXED save method (INSIDE CLASS)
     def save(self, *args, **kwargs):
         if not self.campaign_id:
             for i in range(5):
@@ -323,3 +312,78 @@ class Campaign(models.Model):
 
     def __str__(self):
         return f"{self.campaign_name} ({self.client.name})"
+
+
+# ==== Add Line Item ====
+
+class LineItem(models.Model):
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='line_items')
+
+    line_item_name = models.CharField(max_length=300)
+
+    # Better than comma-separated
+    ethnicity = models.JSONField(blank=True, null=True)
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    # multiple formats (image, video)
+    ad_format = models.JSONField(blank=True, null=True)
+
+    impressions = models.BigIntegerField(null=True, blank=True)
+
+    landing_page = models.URLField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    #  validation
+    def clean(self):
+        if self.end_date and self.start_date:
+            if self.end_date < self.start_date:
+                raise ValueError("End date must be greater than start date")
+
+    def __str__(self):
+        return f"{self.line_item_name} ({self.campaign.campaign_name})"
+
+
+# ===== CREATIVE =====
+class LineItemCreative(models.Model):
+    line_item = models.ForeignKey(
+        LineItem,
+        on_delete=models.CASCADE,
+        related_name='creatives'
+    )
+
+    file = models.FileField(upload_to='creatives/')
+    file_type = models.CharField(max_length=20, blank=True)  # image / video
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Validation
+    def clean(self):
+        if self.file and self.file.size > 50 * 1024 * 1024:  # 50MB
+            raise ValueError("File too large")
+
+    #  Save method (MERGED correctly)
+    def save(self, *args, **kwargs):
+        # Validate first
+        self.full_clean()
+
+        # Detect file type
+        if self.file:
+            ext = os.path.splitext(self.file.name)[1].lower()
+
+            if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                self.file_type = 'image'
+            elif ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                self.file_type = 'video'
+            else:
+                self.file_type = 'unknown'
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.line_item.line_item_name} - {self.file.name}"
