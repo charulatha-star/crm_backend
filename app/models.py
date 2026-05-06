@@ -355,34 +355,90 @@ class LineItem(models.Model):
         return f"{self.line_item_name} ({self.campaign.campaign_name})"
 
 
-# ===== CREATIVE =====
-class LineItemCreative(models.Model):
+# # ===== CREATIVE =====
+# class LineItemCreative(models.Model):
+#     line_item = models.ForeignKey(
+#         LineItem,
+#         on_delete=models.CASCADE,
+#         related_name='creatives'
+#     )
+
+#     file = models.FileField(upload_to='creatives/')
+#     file_type = models.CharField(max_length=20, blank=True)  # image / video
+
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     # Validation
+#     def clean(self):
+#         if self.file and self.file.size > 50 * 1024 * 1024:  # 50MB
+#             raise ValueError("File too large")
+
+#     #  Save method (MERGED correctly)
+#     def save(self, *args, **kwargs):
+#         # Validate first
+#         self.full_clean()
+
+
+# # Get file extension
+#         # Detect file type
+#         if self.file:
+#             ext = os.path.splitext(self.file.name)[1].lower()
+
+#             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+#                 self.file_type = 'image'
+#             elif ext in ['.mp4', '.mov', '.avi', '.mkv']:
+#                 self.file_type = 'video'
+#             else:
+#                 self.file_type = 'unknown'
+
+#         super().save(*args, **kwargs)
+
+#     def __str__(self):
+#         return f"{self.line_item.line_item_name} - {self.file.name}"
+    
+
+# ------------------------------------------------------------------
+
+class Creative(models.Model):
     line_item = models.ForeignKey(
         LineItem,
         on_delete=models.CASCADE,
-        related_name='creatives'
+        related_name='creatives_detail' 
     )
 
-    file = models.FileField(upload_to='creatives/')
-    file_type = models.CharField(max_length=20, blank=True)  # image / video
+    creative_name = models.CharField(max_length=300)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    # FILES
+    main_asset = models.FileField(upload_to='creatives/main/', blank=True, null=True)
+    backup_image = models.FileField(upload_to='creatives/backup/', blank=True, null=True)
 
-    # Validation
-    def clean(self):
-        if self.file and self.file.size > 50 * 1024 * 1024:  # 50MB
-            raise ValueError("File too large")
+    # AUTO FILE TYPE
+    file_type = models.CharField(max_length=20, blank=True)
 
-    #  Save method (MERGED correctly)
+    # META DATA
+    dimensions = models.CharField(max_length=50, blank=True)
+    aspect_ratio = models.CharField(max_length=20, blank=True)
+    file_size = models.CharField(max_length=30, blank=True)
+
+    # FILE NAMES
+    main_asset_name = models.CharField(max_length=255, blank=True)
+    backup_image_name = models.CharField(max_length=255, blank=True)
+
+    # EXTRA
+    click_through_url = models.URLField(blank=True, null=True)
+    appended_html_tag = models.TextField(blank=True)
+    integration_code = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    # AUTO DETECT FILE TYPE
     def save(self, *args, **kwargs):
-        # Validate first
-        self.full_clean()
-
-
-# Get file extension
-        # Detect file type
-        if self.file:
-            ext = os.path.splitext(self.file.name)[1].lower()
+        if self.main_asset:
+            ext = os.path.splitext(self.main_asset.name)[1].lower()
 
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
                 self.file_type = 'image'
@@ -394,45 +450,201 @@ class LineItemCreative(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.line_item.line_item_name} - {self.file.name}"
-    
-
-# ------------------------------------------------------------------
-
-class Creative(models.Model):
-    line_item = models.ForeignKey(
-        LineItem,
-        on_delete=models.CASCADE,
-        related_name='creatives_detail'
-    )
-
-    creative_name = models.CharField(max_length=300)
-
-    main_asset = models.FileField(upload_to='creatives/main/', blank=True, null=True)
-    backup_image = models.FileField(upload_to='creatives/backup/', blank=True, null=True)
-
-    # Auto-extracted from image
-    dimensions = models.CharField(max_length=50, blank=True)
-    aspect_ratio = models.CharField(max_length=20, blank=True)
-    file_size = models.CharField(max_length=30, blank=True)
-
-    # File metadata
-    main_asset_name = models.CharField(max_length=255, blank=True)
-    backup_image_name = models.CharField(max_length=255, blank=True)
-    #main_asset_mime = models.CharField(max_length=100, blank=True)
-    #backup_image_mime = models.CharField(max_length=100, blank=True)
-
-    # Extra fields from the table
-    click_through_url = models.URLField(blank=True, null=True)
-    appended_html_tag = models.TextField(blank=True)
-    integration_code = models.TextField(blank=True)
-    notes = models.TextField(blank=True)
-
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-uploaded_at']
-
-    def __str__(self):
         return f"{self.creative_name} ({self.line_item.line_item_name})"
-    
+
+
+
+
+
+
+
+# class Creative(models.Model):
+#     line_item = models.ForeignKey(
+#         LineItem,
+#         on_delete=models.CASCADE,
+#         related_name='creatives'
+#     )
+
+#     creative_name = models.CharField(max_length=300)
+
+#     # FILES
+#     main_asset = models.FileField(upload_to='creatives/main/', blank=True, null=True)
+#     backup_image = models.FileField(upload_to='creatives/backup/', blank=True, null=True)
+
+#     # AUTO FILE TYPE
+#     file_type = models.CharField(max_length=20, blank=True)
+
+#     # META DATA
+#     dimensions = models.CharField(max_length=50, blank=True)
+#     aspect_ratio = models.CharField(max_length=20, blank=True)
+#     file_size = models.CharField(max_length=30, blank=True)
+
+#     # FILE NAMES
+#     main_asset_name = models.CharField(max_length=255, blank=True)
+#     backup_image_name = models.CharField(max_length=255, blank=True)
+
+#     # EXTRA
+#     click_through_url = models.URLField(blank=True, null=True)
+#     appended_html_tag = models.TextField(blank=True)
+#     integration_code = models.TextField(blank=True)
+#     notes = models.TextField(blank=True)
+
+#     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         ordering = ['-uploaded_at']
+
+#     # AUTO DETECT FILE TYPE
+#     def save(self, *args, **kwargs):
+#         if self.main_asset:
+#             ext = os.path.splitext(self.main_asset.name)[1].lower()
+
+#             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+#                 self.file_type = 'image'
+#             elif ext in ['.mp4', '.mov', '.avi', '.mkv']:
+#                 self.file_type = 'video'
+#             else:
+#                 self.file_type = 'unknown'
+
+#         super().save(*args, **kwargs)
+
+#     def __str__(self):
+#         return f"{self.creative_name} ({self.line_item.line_item_name})"
+
+
+# serializer ()
+
+# class LineItemSerializer(serializers.ModelSerializer):
+#     creatives = CreativeSerializer(many=True, read_only=True)
+
+#     class Meta:
+#         model = LineItem
+#         fields = '__all__'
+
+
+# ---------------------------
+# create campaign view function
+
+# @api_view(['POST'])
+# @parser_classes([MultiPartParser, FormParser])
+# def create_campaign(request):
+
+#     # 1. Validate client
+#     client_id = request.data.get('client')
+
+#     if not client_id:
+#         return Response({"error": "client is required"}, status=400)
+
+#     try:
+#         client = Client.objects.get(client_id=client_id)
+#     except Client.DoesNotExist:
+#         return Response({"error": f"Client '{client_id}' not found"}, status=404)
+
+#     # 2. Create Campaign
+#     data = request.data.copy()
+#     data.pop('client', None)
+
+#     serializer = CampaignSerializer(data=data)
+
+#     if not serializer.is_valid():
+#         return Response(serializer.errors, status=400)
+
+#     campaign = serializer.save(client=client)
+
+#     # 3. Parse Line Items JSON
+#     try:
+#         line_items_data = json.loads(request.data.get('line_items', '[]'))
+#     except Exception:
+#         return Response({"error": "Invalid line_items JSON"}, status=400)
+
+#     # 4. Create Line Items ONLY (no creatives here)
+#     for li in line_items_data:
+#         LineItem.objects.update_or_create(
+#             line_item_id=li.get('line_item_id', ''),
+#             defaults={
+#                 'campaign': campaign,
+#                 'line_item_name': li.get('lineItemName'),
+#                 'ethnicity': li.get('ethnicity', []),
+#                 'start_date': li.get('startDate') or None,
+#                 'end_date': li.get('endDate') or None,
+#                 'ad_format': li.get('adFormat', []),
+#                 'impressions': li.get('impressions') or None,
+#                 'landing_page': li.get('landingPage') or None,
+#                 'units': li.get('units') or None,
+#                 'ctr': li.get('ctr') or None,
+#                 'viewability': li.get('viewability') or None,
+#                 'vcr': li.get('vcr') or None,
+#             }
+#         )
+
+#     return Response({
+#         "message": "Campaign created successfully",
+#         "campaign_id": campaign.campaign_id,
+#         "data": CampaignSerializer(campaign).data
+#     }, status=status.HTTP_201_CREATED)
+
+
+# --------------------
+
+# get campaigns
+
+# @api_view(['GET'])
+# def get_campaigns(request):
+
+#     campaigns = Campaign.objects.select_related('client').prefetch_related(
+#         Prefetch(
+#             'line_items',
+#             queryset=LineItem.objects.prefetch_related('creatives_detail')
+#         )
+#     ).all()
+
+#     serializer = CampaignSerializer(campaigns, many=True)
+#     return Response(serializer.data)
+
+
+# --------------------
+
+# get_campaigns_by_client
+
+# @api_view(['GET'])
+# def get_campaigns_by_client(request, client_id):
+
+#     try:
+#         campaigns = Campaign.objects.filter(
+#             client__client_id=client_id
+#         ).select_related('client').prefetch_related(
+#             Prefetch(
+#                 'line_items',
+#                 queryset=LineItem.objects.prefetch_related('creatives_detail')
+#             )
+#         )
+
+#         if not campaigns.exists():
+#             return Response({"message": "No campaigns found for this client"}, status=404)
+
+#         serializer = CampaignSerializer(campaigns, many=True)
+#         return Response(serializer.data)
+
+#     except Exception as e:
+#         return Response({"error": str(e)}, status=500)
+
+
+# get campaign by id
+
+
+# @api_view(['GET'])
+# def get_campaign_by_id(request, campaign_id):
+
+#     try:
+#         campaign = Campaign.objects.select_related('client').prefetch_related(
+#             Prefetch(
+#                 'line_items',
+#                 queryset=LineItem.objects.prefetch_related('creatives_detail')
+#             )
+#         ).get(campaign_id=campaign_id)
+
+#     except Campaign.DoesNotExist:
+#         return Response({"error": "Campaign not found"}, status=404)
+
+#     serializer = CampaignSerializer(campaign)
+#     return Response(serializer.data)
