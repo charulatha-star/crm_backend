@@ -326,7 +326,7 @@ class LineItem(models.Model):
     # Better than comma-separated
     ethnicity = models.JSONField(blank=True, null=True)
 
-    start_date = models.DateField()
+    start_date = models.DateField() 
     end_date = models.DateField()
 
     # multiple formats (image, video)
@@ -337,9 +337,15 @@ class LineItem(models.Model):
     #landing_page = models.URLField(blank=True, null=True)
     
     units = models.CharField(max_length=100,null=True, blank=True)
-    ctr = models.IntegerField(null=True, blank=True)
-    viewability = models.IntegerField(null=True, blank=True)
-    vcr = models.IntegerField(null=True, blank=True)
+    ctr = models.FloatField(null=True, blank=True)
+    viewability = models.FloatField(null=True, blank=True)
+    vcr = models.FloatField(null=True, blank=True)
+
+    # add unit costs and kpi notes
+    unit_cost = models.FloatField(null=True, blank=True)
+    kpi_notes = models.TextField(null=True, blank=True)
+
+   
 
     created_at = models.DateTimeField(auto_now_add=True)
 
