@@ -162,6 +162,9 @@ def create_campaign(request):
                         'ctr': li.get('ctr') or None,
                         'viewability': li.get('viewability') or None,
                         'vcr': li.get('vcr') or None,
+                        'unit_cost': li.get('unit_cost') or None,
+                        'kpi_notes': li.get('kpi_notes', ''),
+
                     }
                 )
 
@@ -275,11 +278,6 @@ def get_campaign_by_id(request, campaign_id):  # http://127.0.0.1:8000/get_campa
 
 
 # -------------------------------------------------
-
-# ================================
-# Update the campaign details 
-# ================================
-
 
 # =========================================================
 # UPDATE CAMPAIGN
@@ -396,48 +394,19 @@ def update_campaign(request, campaign_id):
                     defaults={
 
                         'campaign': campaign,
+                        'line_item_name': li.get('lineItemName'),
+                        'ethnicity': li.get('ethnicity',[]),
+                        'start_date': parse_date(li.get('startDate')),
+                        'end_date': parse_date(li.get('endDate')),
+                        'ad_format': li.get('adFormat',[]),
+                        'impressions': li.get('impressions') or None,
+                        'units': li.get('units') or None,
+                        'ctr': li.get('ctr') or None,
+                        'viewability': li.get('viewability') or None,
+                        'vcr': li.get('vcr') or None,
+                        'unit_cost': li.get('unit_cost') or None,
+                        'kpi_notes': li.get('kpi_notes', ''),
 
-                        'line_item_name': li.get(
-                            'lineItemName'
-                        ),
-
-                        'ethnicity': li.get(
-                            'ethnicity',
-                            []
-                        ),
-
-                        'start_date': parse_date(
-                            li.get('startDate')
-                        ),
-
-                        'end_date': parse_date(
-                            li.get('endDate')
-                        ),
-
-                        'ad_format': li.get(
-                            'adFormat',
-                            []
-                        ),
-
-                        'impressions': li.get(
-                            'impressions'
-                        ) or None,
-
-                        'units': li.get(
-                            'units'
-                        ) or None,
-
-                        'ctr': li.get(
-                            'ctr'
-                        ) or None,
-
-                        'viewability': li.get(
-                            'viewability'
-                        ) or None,
-
-                        'vcr': li.get(
-                            'vcr'
-                        ) or None,
                     }
                 )
 
@@ -553,3 +522,59 @@ def update_campaign(request, campaign_id):
         "campaign_id": campaign.campaign_id,
 
     }, status=200) 
+
+# ------------- Login functionality ---------------
+
+from django.contrib.auth import authenticate
+from app.models import User
+
+@api_view(['POST'])
+def login_view(request):
+
+    email = request.data.get('email')
+    password = request.data.get('password')
+
+    try:
+        user_obj = User.objects.get(email=email)
+
+    except User.DoesNotExist:
+
+        return Response({"error": "Invalid email"},status=401)
+
+    user = authenticate(
+        username=user_obj.username,
+        password=password
+    )
+    if user is None:
+        return Response({"error": "Invalid password"},status=401)
+
+    return Response({
+        "message": "Login successful",
+
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,   
+        }
+
+    })
+
+
+# ------------------ Download function ----------------------
+
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+
+
+@api_view(['GET'])
+def download_creative(request, creative_id):
+
+    # Get creative object
+    creative = get_object_or_404(Creative,id=creative_id)
+
+    # Get uploaded file path
+    file_path = creative.main_asset.path
+
+    # Return downloadable response
+    return FileResponse(open(file_path, 'rb'),as_attachment=True,filename=creative.main_asset.name)

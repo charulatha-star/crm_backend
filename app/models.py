@@ -10,6 +10,7 @@ class User(AbstractUser):
     ROLE_CHOICES = [
         ('superadmin', 'Super Admin'),
         ('client', 'Client'),
+        ('creative', 'Creative')
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 
