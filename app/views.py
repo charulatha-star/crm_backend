@@ -121,7 +121,7 @@ def create_client(request):
 
                 role='client',
 
-                client=client
+                client=client  # links every user with their own Client object.
             )
 
             # Default password
@@ -143,12 +143,6 @@ def create_client(request):
         serializer.errors,
         status=400
     )
-
-
-
-
-
-
 
 
 
@@ -664,9 +658,10 @@ def login_view(request):
             "username": user.username,
             "email": user.email,
             "role": user.role,   
+            "client_id": user.client.client_id if user.client else None, 
         }
 
-    })
+    }, status=200)
 
 
 # ------------------ Download function ----------------------
